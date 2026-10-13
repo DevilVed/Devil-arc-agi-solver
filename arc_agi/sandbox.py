@@ -43,21 +43,27 @@ async def run(
 
         try:
             payload = json.loads(stdout.decode())
-            return bool(payload.get("ok")), json.dumps(payload.get("result"))
+            if payload.get("ok"):
+                return True, json.dumps(payload.get("result"))
+            return False, str(payload.get("error", "execution failed"))
         except Exception as e:
             return False, f"bad-json: {e}"
 
 
 def _build_script(code: str) -> str:
-    return f"""
-# generated file
-{code}
-if __name__ == '__main__':
-    import json
-    import numpy as np
-    import scipy
-    from sys import stdin
-    data = json.load(stdin)
-    res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
-"""
+    wrapper = textwrap.dedent("""
+    if __name__ == '__main__':
+        import json
+        import numpy as np
+        import scipy
+        from sys import stdin
+        try:
+            data = json.load(stdin)
+            res = transform(np.array(data['input']))
+            if hasattr(res, 'tolist'):
+                res = res.tolist()
+            print(json.dumps({"ok": True, "result": res}))
+        except Exception as e:
+            print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
+    """)
+    return f"{code}\n\n{wrapper}"
