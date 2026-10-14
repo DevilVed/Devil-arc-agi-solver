@@ -16,6 +16,9 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        env = os.environ.copy()
+        env["PYTHONHASHSEED"] = "0"
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +26,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=env,
         )
 
         try:
@@ -59,5 +62,9 @@ if __name__ == '__main__':
     from sys import stdin
     data = json.load(stdin)
     res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
+    if hasattr(res, 'tolist'):
+        res = res.tolist()
+    elif not isinstance(res, list):
+        res = np.asarray(res).tolist()
+    print(json.dumps({{"ok": True, 'result': res}}))
 """
