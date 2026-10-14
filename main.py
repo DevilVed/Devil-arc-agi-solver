@@ -113,12 +113,17 @@ async def main():
 
     tasks = [asyncio.create_task(_eval_task_data(task_id, task)) for task_id, task in items]
 
+    total_tasks = len(items)
+
     for coro in asyncio.as_completed(tasks):
         task_id, preds, tokens, err, elapsed = await coro
 
+        total += 1
+
         if err is not None or preds is None:
-            print(f"! {task_id} (error in {round(elapsed)}s)\n{err}")
             submission[task_id] = []
+            status_symbol = "!"
+            task_status = f"(error in {round(elapsed)}s)"
         else:
             submission[task_id] = preds
             if tokens:
@@ -129,13 +134,24 @@ async def main():
                 gt_outputs = solutions_blob[task_id]
                 task_score = score_task(preds, gt_outputs)
                 per_task_scores[task_id] = task_score
-                total += 1
                 correct += task_score
                 incorrect += 1 - task_score
-                mark = "✓" if task_score == 1.0 else "✗"
-                print(f"{mark} {task_id} ({round(elapsed)}s) [{correct}/{total}]")
+                status_symbol = "✓" if task_score == 1.0 else "✗"
+                task_status = f"({round(elapsed)}s)"
             else:
-                print(f"· {task_id} ({round(elapsed)}s)")
+                status_symbol = "·"
+                task_status = f"({round(elapsed)}s)"
+
+        # Visual progress bar
+        bar_length = 20
+        filled_length = int(bar_length * total // max(total_tasks, 1))
+        bar = "█" * filled_length + "░" * (bar_length - filled_length)
+        pct = (total / max(total_tasks, 1)) * 100
+
+        acc_str = f" | Acc: {correct/total*100:.1f}%" if solutions_blob is not None and total > 0 else ""
+        print(f"[{bar}] {total}/{total_tasks} ({pct:.1f}%){acc_str} | {status_symbol} {task_id} {task_status}")
+        if err is not None:
+            print(f"    Error: {str(err).strip()}")
 
         # write cumulative Kaggle output after each task
         try:
