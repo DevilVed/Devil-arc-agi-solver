@@ -1,15 +1,15 @@
 import json
 from typing import Any, List
 
+import numpy as np
+
 from arc_agi.types import ARCAGIResult
 
 
 def _coerce_grid(x: Any) -> list:
     # numpy -> list
     try:
-        import numpy as _np
-
-        if isinstance(x, _np.ndarray):
+        if isinstance(x, np.ndarray):
             return x.tolist()
     except Exception:
         pass
