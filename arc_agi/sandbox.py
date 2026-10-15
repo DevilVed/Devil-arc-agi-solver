@@ -16,6 +16,14 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        # Pass a restricted environment to avoid leaking host secrets/API keys to untrusted generated code
+        sandbox_env = {
+            "PYTHONHASHSEED": "0",
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        }
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +31,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=sandbox_env,
         )
 
         try:
