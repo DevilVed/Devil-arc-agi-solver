@@ -13,6 +13,7 @@ from arc_agi.config import CONFIG_LIST
 from arc_agi.io import build_kaggle_two_attempts
 from arc_agi.scoring import score_task
 from arc_agi.solve import solve
+from arc_agi.utils import format_status_mark
 
 load_dotenv()
 
@@ -132,8 +133,10 @@ async def main():
                 total += 1
                 correct += task_score
                 incorrect += 1 - task_score
-                mark = "✓" if task_score == 1.0 else "✗"
-                print(f"{mark} {task_id} ({round(elapsed)}s) [{correct}/{total}]")
+                mark = format_status_mark(task_score)
+                running_acc = (correct / total) * 100
+                correct_fmt = int(correct) if correct.is_integer() else f"{correct:.1f}"
+                print(f"{mark} {task_id} ({round(elapsed)}s) [{correct_fmt}/{total} ({running_acc:.1f}%)]")
             else:
                 print(f"· {task_id} ({round(elapsed)}s)")
 
@@ -153,9 +156,11 @@ async def main():
     print(f"Problems: {len(items)}")
     if solutions_blob is not None and per_task_scores:
         acc = correct / total
-        print(f"Correct: {correct}")
-        print(f"Incorrect: {incorrect}")
-        print(f"Accuracy: {acc * 100:.3f}")
+        correct_fmt = int(correct) if correct.is_integer() else f"{correct:.1f}"
+        incorrect_fmt = int(incorrect) if incorrect.is_integer() else f"{incorrect:.1f}"
+        print(f"Correct: {correct_fmt}")
+        print(f"Incorrect: {incorrect_fmt}")
+        print(f"Accuracy: {acc * 100:.2f}%")
     else:
         print("Scoring: disabled or no tasks matched in solutions.")
     print(f"Total time: {round(total_time)}s")
