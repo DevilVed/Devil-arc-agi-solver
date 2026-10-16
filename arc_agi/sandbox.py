@@ -34,15 +34,21 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+                await proc.wait()
             except ProcessLookupError:
                 pass
             return False, "timeout"
 
         if proc.returncode != 0:
-            return False, (stderr.decode() or stdout.decode()).strip()
+            err_msg = (
+                stderr.decode("utf-8", errors="replace")
+                or stdout.decode("utf-8", errors="replace")
+            ).strip()
+            return False, err_msg
 
         try:
-            payload = json.loads(stdout.decode())
+            out_str = stdout.decode("utf-8", errors="replace")
+            payload = json.loads(out_str)
             return bool(payload.get("ok")), json.dumps(payload.get("result"))
         except Exception as e:
             return False, f"bad-json: {e}"
@@ -59,5 +65,6 @@ if __name__ == '__main__':
     from sys import stdin
     data = json.load(stdin)
     res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
+    res_list = np.asarray(res).tolist()
+    print(json.dumps({{"ok": True, 'result': res_list}}))
 """
