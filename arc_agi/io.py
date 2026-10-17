@@ -1,33 +1,26 @@
 import json
 from typing import Any, List
 
+import numpy as np
+
 from arc_agi.types import ARCAGIResult
 
 
 def _coerce_grid(x: Any) -> list:
-    # numpy -> list
-    try:
-        import numpy as _np
-
-        if isinstance(x, _np.ndarray):
-            return x.tolist()
-    except Exception:
-        pass
+    # Fast path: already a list
+    if isinstance(x, list):
+        return x
+    # numpy array -> list
+    if isinstance(x, np.ndarray):
+        return x.tolist()
     # stringified JSON -> list
     if isinstance(x, str):
         s = x.strip()
-        if s and (s[0] == "[" or s[0] == "{"):
+        if s and (s.startswith("[") or s.startswith("{")):
             try:
-                parsed = json.loads(s)
-                return parsed
+                return json.loads(s)
             except Exception:
-                # not JSON; fall through
                 return []
-        else:
-            return []
-    # already list-like?
-    if isinstance(x, list):
-        return x
     return []
 
 
