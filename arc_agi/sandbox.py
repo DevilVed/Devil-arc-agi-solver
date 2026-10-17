@@ -23,7 +23,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=_build_sandbox_env(),
         )
 
         try:
@@ -34,6 +34,10 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+            except ProcessLookupError:
+                pass
+            try:
+                await proc.wait()
             except ProcessLookupError:
                 pass
             return False, "timeout"
@@ -48,6 +52,14 @@ async def run(
             return False, f"bad-json: {e}"
 
 
+def _build_sandbox_env() -> dict[str, str]:
+    """Build a sanitized environment for untrusted code execution to prevent leaking host secrets."""
+    allowed_keys = {"PATH", "PYTHONPATH", "SYSTEMROOT", "TMPDIR", "TEMP"}
+    env = {k: v for k, v in os.environ.items() if k in allowed_keys}
+    env["PYTHONHASHSEED"] = "0"
+    return env
+
+
 def _build_script(code: str) -> str:
     return f"""
 # generated file
@@ -59,5 +71,6 @@ if __name__ == '__main__':
     from sys import stdin
     data = json.load(stdin)
     res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
+    res_list = np.asarray(res).tolist()
+    print(json.dumps({{"ok": True, 'result': res_list}}))
 """
