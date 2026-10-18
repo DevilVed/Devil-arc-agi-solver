@@ -3,7 +3,20 @@ import json
 import os
 import sys
 import tempfile
-import textwrap
+
+
+def _set_limits():
+    """Limit subprocess resources on POSIX systems to prevent DoS/OOM attacks."""
+    if os.name == "posix":
+        try:
+            import resource
+
+            # Limit virtual memory to 2 GB
+            mem_limit = 2 * 1024 * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
+        except Exception:
+            pass
+
 
 async def run(
     code: str, input_grid: list[list[int]], timeout_s: float = 1.5
@@ -14,7 +27,12 @@ async def run(
     with tempfile.TemporaryDirectory() as td:
         path = os.path.join(td, "u.py")
         with open(path, "w", encoding="utf-8") as f:
-            f.write(textwrap.dedent(script))
+            f.write(script)
+
+        env = {**os.environ, "PYTHONHASHSEED": "0"}
+        kwargs = {}
+        if os.name == "posix":
+            kwargs["preexec_fn"] = _set_limits
 
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -23,7 +41,8 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=env,
+            **kwargs,
         )
 
         try:
@@ -34,6 +53,7 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+                await proc.wait()  # Ensure process is reaped to avoid zombie leak
             except ProcessLookupError:
                 pass
             return False, "timeout"
@@ -49,9 +69,9 @@ async def run(
 
 
 def _build_script(code: str) -> str:
-    return f"""
-# generated file
+    return f"""# generated file
 {code}
+
 if __name__ == '__main__':
     import json
     import numpy as np
