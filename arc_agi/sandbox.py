@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import signal
 import sys
 import tempfile
 import textwrap
@@ -16,6 +17,11 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        # Start process in its own process group to prevent orphaned sub-processes from untrusted code execution.
+        kwargs = {}
+        if sys.platform != "win32":
+            kwargs["start_new_session"] = True
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -24,6 +30,7 @@ async def run(
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
             env={"PYTHONHASHSEED": "0"},
+            **kwargs,
         )
 
         try:
@@ -32,10 +39,15 @@ async def run(
                 timeout=timeout_s,
             )
         except asyncio.TimeoutError:
+            # Terminate the entire process group and await process exit to prevent zombie processes and child process leaks.
             try:
-                proc.kill()
+                if sys.platform != "win32":
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                else:
+                    proc.kill()
             except ProcessLookupError:
                 pass
+            await proc.wait()
             return False, "timeout"
 
         if proc.returncode != 0:
