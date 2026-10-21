@@ -110,14 +110,18 @@ async def main():
     total = 0
     correct = 0.0
     incorrect = 0.0
+    completed = 0
+    total_items = len(items)
 
     tasks = [asyncio.create_task(_eval_task_data(task_id, task)) for task_id, task in items]
 
     for coro in asyncio.as_completed(tasks):
         task_id, preds, tokens, err, elapsed = await coro
+        completed += 1
+        pct = (completed / total_items * 100) if total_items > 0 else 0.0
 
         if err is not None or preds is None:
-            print(f"! {task_id} (error in {round(elapsed)}s)\n{err}")
+            print(f"! {task_id} (error in {round(elapsed)}s) [{completed}/{total_items} - {pct:.1f}%]\n{err}")
             submission[task_id] = []
         else:
             submission[task_id] = preds
@@ -133,9 +137,11 @@ async def main():
                 correct += task_score
                 incorrect += 1 - task_score
                 mark = "✓" if task_score == 1.0 else "✗"
-                print(f"{mark} {task_id} ({round(elapsed)}s) [{correct}/{total}]")
+                fmt_correct = int(correct) if correct.is_integer() else f"{correct:.1f}"
+                curr_acc = (correct / total * 100) if total > 0 else 0.0
+                print(f"{mark} {task_id} ({round(elapsed)}s) [{completed}/{total_items} - {pct:.1f}%] [Score: {fmt_correct}/{total} ({curr_acc:.1f}%)]")
             else:
-                print(f"· {task_id} ({round(elapsed)}s)")
+                print(f"· {task_id} ({round(elapsed)}s) [{completed}/{total_items} - {pct:.1f}%]")
 
         # write cumulative Kaggle output after each task
         try:
@@ -153,9 +159,11 @@ async def main():
     print(f"Problems: {len(items)}")
     if solutions_blob is not None and per_task_scores:
         acc = correct / total
-        print(f"Correct: {correct}")
-        print(f"Incorrect: {incorrect}")
-        print(f"Accuracy: {acc * 100:.3f}")
+        fmt_correct = int(correct) if correct.is_integer() else f"{correct:.1f}"
+        fmt_incorrect = int(incorrect) if incorrect.is_integer() else f"{incorrect:.1f}"
+        print(f"Correct: {fmt_correct}/{total}")
+        print(f"Incorrect: {fmt_incorrect}/{total}")
+        print(f"Accuracy: {acc * 100:.2f}%")
     else:
         print("Scoring: disabled or no tasks matched in solutions.")
     print(f"Total time: {round(total_time)}s")
