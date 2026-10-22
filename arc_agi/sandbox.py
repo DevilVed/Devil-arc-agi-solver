@@ -39,10 +39,10 @@ async def run(
             return False, "timeout"
 
         if proc.returncode != 0:
-            return False, (stderr.decode() or stdout.decode()).strip()
+            return False, (stderr.decode(errors="replace") or stdout.decode(errors="replace")).strip()
 
         try:
-            payload = json.loads(stdout.decode())
+            payload = json.loads(stdout.decode(errors="replace"))
             return bool(payload.get("ok")), json.dumps(payload.get("result"))
         except Exception as e:
             return False, f"bad-json: {e}"
