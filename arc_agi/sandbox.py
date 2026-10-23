@@ -16,6 +16,8 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        env = {**os.environ, "PYTHONHASHSEED": "0"}
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +25,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=env,
         )
 
         try:
@@ -34,12 +36,15 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+                await proc.wait()
             except ProcessLookupError:
                 pass
             return False, "timeout"
 
         if proc.returncode != 0:
-            return False, (stderr.decode() or stdout.decode()).strip()
+            err_msg = (stderr.decode() or stdout.decode()).strip()
+            err_msg = err_msg.replace(path, "solution.py").replace(td, "")
+            return False, err_msg
 
         try:
             payload = json.loads(stdout.decode())
