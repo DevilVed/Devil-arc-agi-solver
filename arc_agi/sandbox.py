@@ -16,6 +16,13 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        # Restrict environment variables passed to user script to prevent leaking sensitive API keys / process environment
+        sandbox_env = {
+            "PYTHONHASHSEED": "0",
+        }
+        if "PATH" in os.environ:
+            sandbox_env["PATH"] = os.environ["PATH"]
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +30,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=sandbox_env,
         )
 
         try:
