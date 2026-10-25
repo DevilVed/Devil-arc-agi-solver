@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import string
@@ -283,11 +284,7 @@ Input:
 
 def _example_to_diagram(example: list[list[int]] | np.ndarray) -> str:
     """Converts an ARC-AGI example (list of lists) to a diagram (ascii grid)."""
-    diagram = ""
-    for row in example:
-        row_str = " ".join([str(col) for col in row]) + "\n"
-        diagram += row_str
-    return diagram[:-1]  # Strip final \n
+    return "\n".join(" ".join(str(col) for col in row) for row in example)
 
 
 async def _eval_on_train_and_test(
@@ -298,10 +295,18 @@ async def _eval_on_train_and_test(
     *,
     timeout_s: float = 1.5,
 ) -> tuple[list[RunResult], list[RunResult]]:
-    # Train
+    # Execute sandbox runs concurrently across all train and test inputs
+    train_tasks = [run(code, iin, timeout_s=timeout_s) for iin in train_in]
+    test_tasks = [run(code, iin, timeout_s=timeout_s) for iin in test_in]
+
+    all_raw = await asyncio.gather(*train_tasks, *test_tasks)
+    train_raw = all_raw[: len(train_in)]
+    test_raw = all_raw[len(train_in) :]
+
+    # Train results
     train_results: list[RunResult] = []
-    for i, (iin, oout) in enumerate(zip(train_in, train_out, strict=True)):
-        ok, out_str = await run(code, iin, timeout_s=timeout_s)
+    for i, (ok, out_str) in enumerate(train_raw):
+        oout = train_out[i]
         success = False
         soft = 0.0
         err: Optional[str] = None
@@ -321,10 +326,9 @@ async def _eval_on_train_and_test(
             RunResult(success=success, output=out_str, soft_score=soft, error=err, code=code)
         )
 
-    # Test
+    # Test results
     test_results: list[RunResult] = []
-    for i, iin in enumerate(test_in):
-        ok, out_str = await run(code, iin, timeout_s=timeout_s)
+    for ok, out_str in test_raw:
         err = None if ok else (out_str or "Execution failed.")
         test_results.append(
             RunResult(success=False, output=out_str, soft_score=0.0, error=err, code=code)
