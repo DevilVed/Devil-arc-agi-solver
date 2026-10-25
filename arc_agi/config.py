@@ -1,4 +1,4 @@
-from arc_agi.prompts import FEEDBACK_PROMPT, SOLVER_PROMPT_1, SOLVER_PROMPT_2, SOLVER_PROMPT_3
+from arc_agi.prompts import FEEDBACK_PROMPT, SOLVER_PROMPT_1
 from arc_agi.types import ExpertConfig
 
 # To run Poetiq(Gemini-3-a):

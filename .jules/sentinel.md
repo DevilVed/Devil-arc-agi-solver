@@ -1,0 +1,4 @@
+## 2025-05-24 - Subprocess Sandbox Clean-up & Decoding Robustness in LLM Code Execution
+**Vulnerability:** Untrusted LLM-generated code running via `asyncio.create_subprocess_exec` left zombie processes when timing out because `proc.kill()` was not followed by `await proc.wait()`. Additionally, invalid non-UTF-8 bytes written to stdout/stderr caused unhandled `UnicodeDecodeError` crashes in the host runner process.
+**Learning:** `asyncio.subprocess` processes require explicit reaping via `await proc.wait()` after `proc.kill()` to release system process table entries. Furthermore, stdout/stderr from untrusted subprocesses must be decoded with `errors="replace"` to prevent process-crashing exceptions from malformed output.
+**Prevention:** Always await process termination after killing subprocesses, and use safe string decoding (`errors="replace"`) when processing untrusted process stdout and stderr.

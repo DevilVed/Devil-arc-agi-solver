@@ -16,6 +16,11 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        env = {
+            "PYTHONHASHSEED": "0",
+            "PYTHONPATH": os.pathsep.join(sys.path),
+        }
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +28,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=env,
         )
 
         try:
@@ -34,15 +39,18 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+                await proc.wait()
             except ProcessLookupError:
                 pass
             return False, "timeout"
 
         if proc.returncode != 0:
-            return False, (stderr.decode() or stdout.decode()).strip()
+            return False, (
+                stderr.decode(errors="replace") or stdout.decode(errors="replace")
+            ).strip()
 
         try:
-            payload = json.loads(stdout.decode())
+            payload = json.loads(stdout.decode(errors="replace"))
             return bool(payload.get("ok")), json.dumps(payload.get("result"))
         except Exception as e:
             return False, f"bad-json: {e}"
@@ -59,5 +67,6 @@ if __name__ == '__main__':
     from sys import stdin
     data = json.load(stdin)
     res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
+    res_arr = np.asarray(res)
+    print(json.dumps({{"ok": True, 'result': res_arr.tolist()}}))
 """
