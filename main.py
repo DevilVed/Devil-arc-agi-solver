@@ -34,6 +34,12 @@ NUM_PROBLEMS = None
 SELECTED_PROBLEMS = [] # e.g. ['b7999b51']
 
 
+def _format_score(val: float | int) -> str:
+    if isinstance(val, float):
+        return f"{int(val)}" if val.is_integer() else f"{val:.1f}"
+    return str(val)
+
+
 async def _eval_task_data(task_id: str, task: dict) -> tuple[str, Optional[list[dict]], Optional[dict], Optional[str], float]:
     """
     Returns: (task_id, kaggle_preds | None on error, tokens | None on error, error, elapsed_seconds)
@@ -133,7 +139,9 @@ async def main():
                 correct += task_score
                 incorrect += 1 - task_score
                 mark = "✓" if task_score == 1.0 else "✗"
-                print(f"{mark} {task_id} ({round(elapsed)}s) [{correct}/{total}]")
+                c_str = _format_score(correct)
+                pct_str = f"{correct / total * 100:.1f}%"
+                print(f"{mark} {task_id} ({round(elapsed)}s) [{c_str}/{total} - {pct_str}]")
             else:
                 print(f"· {task_id} ({round(elapsed)}s)")
 
@@ -153,9 +161,11 @@ async def main():
     print(f"Problems: {len(items)}")
     if solutions_blob is not None and per_task_scores:
         acc = correct / total
-        print(f"Correct: {correct}")
-        print(f"Incorrect: {incorrect}")
-        print(f"Accuracy: {acc * 100:.3f}")
+        c_str = _format_score(correct)
+        i_str = _format_score(incorrect)
+        print(f"Correct: {c_str}")
+        print(f"Incorrect: {i_str}")
+        print(f"Accuracy: {acc * 100:.2f}%")
     else:
         print("Scoring: disabled or no tasks matched in solutions.")
     print(f"Total time: {round(total_time)}s")
