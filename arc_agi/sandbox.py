@@ -16,6 +16,17 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        # Sanitize environment variables passed to the untrusted LLM-generated Python subprocess.
+        # Only pass minimal necessary environment variables to avoid leaking sensitive host env vars (e.g. API keys).
+        sandbox_env = {
+            "PYTHONHASHSEED": "0",
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        }
+        # Filter out empty environment keys
+        sandbox_env = {k: v for k, v in sandbox_env.items() if v}
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -23,7 +34,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env=sandbox_env,
         )
 
         try:
