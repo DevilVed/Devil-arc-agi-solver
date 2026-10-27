@@ -51,13 +51,33 @@ async def run(
 def _build_script(code: str) -> str:
     return f"""
 # generated file
+import resource
+import sys
+
+# Limit virtual memory (1 GB) to protect against DoS memory exhaustion
+try:
+    resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, 1024 * 1024 * 1024))
+except Exception:
+    pass
+
 {code}
+
 if __name__ == '__main__':
     import json
     import numpy as np
     import scipy
     from sys import stdin
-    data = json.load(stdin)
-    res = transform(np.array(data['input']))
-    print(json.dumps({{"ok": True, 'result': res.tolist()}}))
+
+    # Redirect stdout to stderr during transform execution to prevent user code prints
+    # from corrupting the IPC JSON payload on stdout.
+    _orig_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        data = json.load(stdin)
+        res = transform(np.array(data['input']))
+        _result_str = json.dumps({{"ok": True, 'result': res.tolist()}})
+    finally:
+        sys.stdout = _orig_stdout
+
+    print(_result_str)
 """
