@@ -16,6 +16,8 @@ async def run(
         with open(path, "w", encoding="utf-8") as f:
             f.write(textwrap.dedent(script))
 
+        # Security: Pass an isolated env (only PYTHONHASHSEED) to prevent untrusted
+        # user/LLM code from accessing sensitive host environment variables (e.g. API keys).
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             path,
@@ -34,6 +36,8 @@ async def run(
         except asyncio.TimeoutError:
             try:
                 proc.kill()
+                # Security: Await process termination to reap process status and prevent zombie subprocess leaks / DoS.
+                await proc.wait()
             except ProcessLookupError:
                 pass
             return False, "timeout"
