@@ -23,7 +23,13 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=td,
-            env={"PYTHONHASHSEED": "0"},
+            env={
+                "PYTHONHASHSEED": "0",
+                "PYTHONPATH": "",
+                "PYTHONNOUSERSITE": "1",
+                "PYTHONSAFEPATH": "1",
+                "PATH": "",
+            },
         )
 
         try:
